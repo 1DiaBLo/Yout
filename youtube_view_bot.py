@@ -1,48 +1,42 @@
-# youtube_view_bot.py
+# youtube_view_bot.py (Playwright version)
 
-import time
+import asyncio
 import random
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from multiprocessing import Process
+from playwright.async_api import async_playwright
 
 VIDEO_URL = "https://youtu.be/R2MYQ-OmyoU?si=IleiqfKq1fY0cswF"
 NUM_VIEWS = 5  # عدد المشاهدات المتزامنة
 
 
-def watch_video():
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--mute-audio")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+async def watch_video(playwright):
+    browser = await playwright.chromium.launch(headless=True)
+    context = await browser.new_context()
+    page = await context.new_page()
 
     try:
-        driver.get(VIDEO_URL)
+        await page.goto(VIDEO_URL)
         print("🎬 Watching video...")
         time_to_watch = random.randint(40, 70)
-        time.sleep(time_to_watch)
+        await asyncio.sleep(time_to_watch)
         print(f"✅ Watched for {time_to_watch} seconds")
     except Exception as e:
         print(f"❌ Error: {e}")
     finally:
-        driver.quit()
+        await browser.close()
+
+
+async def main():
+    async with async_playwright() as playwright:
+        tasks = []
+        for _ in range(NUM_VIEWS):
+            task = asyncio.create_task(watch_video(playwright))
+            tasks.append(task)
+            await asyncio.sleep(random.uniform(1.0, 3.0))
+
+        await asyncio.gather(*tasks)
+        print("🔥 All views finished!")
 
 
 if __name__ == "__main__":
-    processes = []
-    for _ in range(NUM_VIEWS):
-        p = Process(target=watch_video)
-        p.start()
-        processes.append(p)
-        time.sleep(random.uniform(1.0, 3.0))  # تفادي الكشف بالتزامن الكامل
-
-    for p in processes:
-        p.join()
-
-    print("🔥 All views finished!")
-  
+    asyncio.run(main())
+    
